@@ -7,7 +7,7 @@ let scene: THREE.Scene,
   renderer: THREE.WebGLRenderer;
 let quad: THREE.Mesh, uniforms: { [key: string]: { value: any } };
 
-const init = () => {
+const init = async () => {
   const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
 
   // Renderer
@@ -65,27 +65,45 @@ const init = () => {
     .setTranscoderPath("node_modules/three/examples/jsm/libs/basis/")
     .detectSupport(renderer);
 
-  const texturePaths = [
-    "path/to/frame_0.ktx2",
-    "path/to/frame_1.ktx2",
-    "path/to/frame_2.ktx2",
-  ];
+  console.log(loader);
+  
+  const texturePaths = [];
+  for(let i = 100; i < 101; i++) {
+    texturePaths.push(`swan_tex/frame_${String(i).padStart(4, '0')}.ktx2`);
+  }
 
-  Promise.all(texturePaths.map((path) => loader.loadAsync(path))).then(
+  const loadPromise = Promise.all(texturePaths.map((path) => loader.loadAsync(path))).then(
     (textures) => {
+      console.log(textures.map(t => t.mipmaps?.length));
       // Create a CompressedArrayTexture
       const width = textures[0].image.width;
       const height = textures[0].image.height;
       const depth = textures.length;
+      const format = textures[0].format;
+
+      for (const tex of textures) {
+        if (tex.image.width !== width || tex.image.height !== height) {
+          throw new Error('All textures in a CompressedArrayTexture must have the same dimensions.');
+        }
+        if (tex.format !== format) {
+          throw new Error('All textures in a CompressedArrayTexture must have the same format.');
+        }
+      }
 
       // Construct the mipmaps array
-      const mipmaps: THREE.CompressedTextureMipmap[] = textures.map(
-        (tex) => ({
-          data: tex.mipmaps!![0].data,
-          width: tex.mipmaps!![0].width,
-          height: tex.mipmaps!![0].height,
-        })
-      );
+      const mipmaps: THREE.CompressedTextureMipmap[] = textures.map(tex => {
+        if (!tex.mipmaps || tex.mipmaps.length === 0) {
+          throw new Error('Missing mipmap data for texture.');
+        }
+        return {
+          data: tex.mipmaps[0].data,
+          width: tex.mipmaps[0].width,
+          height: tex.mipmaps[0].height,
+        };
+      });
+
+      console.log(mipmaps.map(m => ({ width: m.width, height: m.height, data: m.data })));
+      console.log(depth, format);
 
       // Create the CompressedArrayTexture
       const compressedArrayTexture = new THREE.CompressedArrayTexture(
@@ -93,10 +111,10 @@ const init = () => {
         width,
         height,
         depth,
-        THREE.RGBA_S3TC_DXT5_Format // Ensure this matches your texture format
+        format // Ensure this matches your texture format
       );
 
-      compressedArrayTexture.format = textures[0].format;
+      compressedArrayTexture.format = format;
       compressedArrayTexture.minFilter = THREE.LinearFilter;
       compressedArrayTexture.magFilter = THREE.LinearFilter;
       compressedArrayTexture.needsUpdate = true;
@@ -116,9 +134,12 @@ const init = () => {
 
   // Render loop
   const animate = () => {
-    requestAnimationFrame(animate);
+    // requestAnimationFrame(animate);
     renderer.render(scene, camera);
+    console.log('render')
   };
+
+  await loadPromise;
 
   animate();
 };

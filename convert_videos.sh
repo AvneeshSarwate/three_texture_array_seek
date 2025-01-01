@@ -35,13 +35,11 @@ mkdir -p "$FRAME_DIR" "$TEXTURE_DIR"
 
 # Step 1: Downscale video to 480p and 20 fps, and extract frames
 echo "Extracting frames from video..."
-ffmpeg -i "$VIDEO_FILE" -vf "scale=-2:480,fps=20" "$FRAME_DIR/frame_%04d.png"
+ffmpeg -i "$VIDEO_FILE" -vf "scale=640:480,fps=20" "$FRAME_DIR/frame_%04d.png"
 
 # Step 2: Convert frames to KTX2 textures using basisu
 echo "Compressing frames into KTX2 textures..."
-for frame in "$FRAME_DIR"/*.png; do
-  frame_name=$(basename "$frame" .png)
-  basisu -ktx2 "$frame" -output_file "$TEXTURE_DIR/${frame_name}.ktx2"
-done
+basisu -ktx2 --no_mipmaps "$FRAME_DIR"/*.png -output_path "$TEXTURE_DIR"
+
 
 echo "Compression complete. Textures saved to $TEXTURE_DIR."
