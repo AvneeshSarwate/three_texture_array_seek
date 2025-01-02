@@ -22,7 +22,7 @@ VIDEO_DIR=$(dirname "$VIDEO_FILE")
 FRAME_DIR="${VIDEO_DIR}/${VIDEO_BASENAME}_frames"
 TEXTURE_DIR="${VIDEO_DIR}/${VIDEO_BASENAME}_textures"
 
-# Clear directories if they exist
+Clear directories if they exist
 if [ -d "$FRAME_DIR" ]; then
   rm -rf "$FRAME_DIR"
 fi
@@ -39,7 +39,9 @@ ffmpeg -i "$VIDEO_FILE" -vf "scale=640:480,fps=20" "$FRAME_DIR/frame_%04d.png"
 
 # Step 2: Convert frames to KTX2 textures using basisu
 echo "Compressing frames into KTX2 textures..."
-basisu -ktx2 --no_mipmaps "$FRAME_DIR"/*.png -output_path "$TEXTURE_DIR"
+# basisu -ktx2 "$FRAME_DIR"/*.png -output_path "$TEXTURE_DIR"
+
+basisu -ktx2 -tex_array -multifile_printf "$FRAME_DIR"/frame_%04u.png -multifile_first 1 -multifile_num 2048 -output_file "$FRAME_DIR/texture_array.ktx2"
 
 
 echo "Compression complete. Textures saved to $TEXTURE_DIR."
