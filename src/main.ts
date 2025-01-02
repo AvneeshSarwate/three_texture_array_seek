@@ -63,8 +63,9 @@ const init = async () => {
       uniform float frame;
       varying vec2 vUv;
       void main() {
-        vec4 color = texture(textureArray, vec3(vUv, frame));
-        gl_FragColor = color;
+        vec2 yFlip = vec2(vUv.x, 1.0 - vUv.y);
+        vec4 color = texture(textureArray, vec3(yFlip, frame));
+        gl_FragColor = color.a > 0. ? color : vec4(0,0,0,1);
       }
     `,
   });
@@ -80,8 +81,8 @@ const init = async () => {
   console.log(loader);
 
 
-  loader.load('texture_array.ktx2', (texureArray) => {
-    console.log("texureArray", texureArray);
+  loader.load('tydance_540_texture_array.ktx2', (texureArray) => {
+    console.log("texureArray", "megs", texureArray.mipmaps!![0].data.length / 1000000, "format", texureArray.format);
     uniforms.textureArray.value = texureArray;
   });
 
