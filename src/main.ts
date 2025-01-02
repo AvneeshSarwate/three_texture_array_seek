@@ -182,7 +182,7 @@ const init = async () => {
     positionLerp = parseFloat((event.target as HTMLInputElement).value);
   });
 
-  let circleSpeed = 0
+  let circleSpeed = 1
   const circleSpeedSlider = document.querySelector<HTMLInputElement>("#circle-speed-slider")!;
   circleSpeedSlider.addEventListener("input", (event) => {
     circleSpeed = parseFloat((event.target as HTMLInputElement).value);
