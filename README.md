@@ -1,7 +1,7 @@
 to start, run `npm install` and then `npm run dev`, and go to the url printed in the terminal.
 
 also, you'll have to download the file https://www.dropbox.com/scl/fi/sujmbc7jmb7ae1boqy4bc/tydance_540_texture_array.ktx2?rlkey=ojyshk12n2mvlonzfva8jca3a&dl=0
-and place it in the `public` folder.
+and place it in the `public` folder (because it's too big to add to the repo).
 
 
 
