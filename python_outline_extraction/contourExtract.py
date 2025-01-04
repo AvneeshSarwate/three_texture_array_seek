@@ -13,7 +13,7 @@ def cubic_bezier_curve(P0, P1, P2, P3, t):
     """Compute a point on a cubic Bézier curve for parameter t."""
     return (1 - t)**3 * P0 + 3 * (1 - t)**2 * t * P1 + 3 * (1 - t) * t**2 * P2 + t**3 * P3
 
-def draw_bezier_curve(image, control_points, color=(255, 0, 0), thickness=20):
+def draw_bezier_curve(image, control_points, color=(255, 0, 0), thickness=5):
     """
     Draws cubic Bézier curves on an image.
     
@@ -71,19 +71,38 @@ def extract_contours(image_path):
 
     curveJsonList = []
 
+    weirdCurveCount = 0
     if debug:
       print("num curves in frame: ",len(curves), "for image", image_path)
     else:
       #convert (N, 4, 2) list into json of  [[x1,y1,x2,y2,x3,y3,x4,y4]]
-      for curve in curves:
-          curveJson = []
-          for point in curve:
+      for c in range(len(curves)):
+          curve = curves[c]
+          try:
+            curveJson = []
+            for point in curve:
               #convert numpy int32 into python int
               curveJson.append(int(point[0]))
               curveJson.append(int(point[1]))
-          curveJsonList.append(curveJson)
+            curveJsonList.append(curveJson)
+          except Exception as e:
+            # create a new curve that starts at the and of the last curve, and ends at the start of the next curve
+            lastCurveStart = curves[c-1][-1]
+            nextCurveEnd = curves[c+1 % len(curves)][0]
+            # linspace to create 4 points
+            newCurve = np.linspace(lastCurveStart, nextCurveEnd, 4)
+            for point in newCurve:
+              curveJsonList.append(int(point[0]))
+              curveJsonList.append(int(point[1]))
+            # print("replacing curve", curves[c], "with new curve", newCurve)
+            weirdCurveCount += 1
 
-    return curveJsonList
+
+    # if there are too many weird curves, return an empty list
+    if weirdCurveCount > 5:
+      return []
+    else:
+      return curveJsonList
   
   except Exception as e:
     print("error in extract_contours", image_path)
@@ -116,14 +135,14 @@ def extract_contours_from_folder_of_videos(folder_path):
 
 
 if __name__ == "__main__":
-  #get video folder from cmd line arg
+  #  #get video folder from cmd line arg
   videos_folder_path = sys.argv[1]
   all_video_contours = extract_contours_from_folder_of_videos(videos_folder_path)
   json.dump(all_video_contours, open("all_video_contours.json", "w"))
 
-  # has error with fitCurve() max error = 1
+  # # has error with fitCurve() max error = 1
   # test_path = 'vids/MUTEK_raw/short_540/kurush_540/00025.png'
-  # print(extract_contours(test_path))
+  # print("frame points",extract_contours(test_path))
 
 
 
