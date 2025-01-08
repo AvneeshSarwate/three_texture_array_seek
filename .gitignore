@@ -25,3 +25,5 @@ dist-ssr
 
 vids/*
 public/tydance_540_texture_array.ktx2
+
+*pose_landmarker.task
