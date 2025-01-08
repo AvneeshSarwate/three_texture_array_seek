@@ -3,9 +3,12 @@
 #     ffmpeg -i "$file" -vf scale=960:540 "tydance2_540/$(basename "$file")"
 # done
 # #alternatively
-# ffmpeg -pattern_type glob -i "input_directory/somestem_*.png" -vf scale=960:540 "output_directory/somestem_%05d.png"
+# mkdir output_directory
+# ffmpeg -pattern_type glob -i "input_directory/*.png" -vf scale=960:540 "output_directory/%05d.png"
 
 # ffmpeg -pattern_type glob -i "aroma/*.png" -vf scale=960:540 "aroma_540/%05d.png"
+
+# ffmpeg -pattern_type glob -i "tydance2/*.png" -vf scale=960:540 "tydance2_540/%05d.png"
 
 
 # basisu -uastc -ktx2 -tex_array -multifile_printf  "vids/tydance2_540/ty_nudefreestyle_long_%05u.png" -multifile_first 1 -multifile_num 523 -output_file "tydance_540_texture_array.ktx2"
@@ -98,7 +101,8 @@ for dir in "$target_dir"/*; do
 done
 
 
-
+# mkdir output_directory
+# ffmpeg -pattern_type glob -i "input_directory/*.png" -vf scale=960:540 "output_directory/%05d.png"
 
 
 # basisu -uastc -ktx2 -tex_array -multifile_printf  "short_540/aroma_540/%05u.png" -multifile_first 1 -multifile_num 36 -output_file "short_540/aroma_540_texture_array.ktx2"

@@ -63,6 +63,43 @@ def collect_png_files(input_dir, nested):
     else:
         return glob.glob(os.path.join(input_dir, '*.png'))
 
+
+def compute_skeletons_for_folder_of_videos(input_dir, neststed, output_file):
+    detector = create_pose_detector()
+
+    # Collect PNG files
+    png_files = collect_png_files(input_dir, neststed)
+
+    if not png_files:
+        print(f"No PNG files found in directory: {input_dir}")
+        return
+
+    results = []
+    grouped_results = {}
+
+    for image_path in png_files:
+        try:
+            print(f"Processing {image_path}...")
+            landmarks_data = process_image(detector, image_path)
+
+            # Group results by parent directory (relative to input_dir)
+            parent_dir = os.path.relpath(os.path.dirname(image_path), input_dir)
+            file_name = os.path.basename(image_path)
+
+            if parent_dir not in grouped_results:
+                grouped_results[parent_dir] = {}
+
+            grouped_results[parent_dir][file_name] = landmarks_data
+        except Exception as e:
+            print(f"Error processing {image_path}: {str(e)}")
+
+    # Convert grouped results to desired JSON structure
+    for parent_dir, files in grouped_results.items():
+        results.append({parent_dir: files}) 
+
+    return results
+
+
 def main():
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Process PNG files for pose detection')
@@ -82,37 +119,7 @@ def main():
         return
 
     # Create detector
-    detector = create_pose_detector()
-
-    # Collect PNG files
-    png_files = collect_png_files(args.input_dir, args.nested)
-
-    if not png_files:
-        print(f"No PNG files found in directory: {args.input_dir}")
-        return
-
-    results = []
-    grouped_results = {}
-
-    for image_path in png_files:
-        try:
-            print(f"Processing {image_path}...")
-            landmarks_data = process_image(detector, image_path)
-
-            # Group results by parent directory (relative to input_dir)
-            parent_dir = os.path.relpath(os.path.dirname(image_path), args.input_dir)
-            file_name = os.path.basename(image_path)
-
-            if parent_dir not in grouped_results:
-                grouped_results[parent_dir] = {}
-
-            grouped_results[parent_dir][file_name] = landmarks_data
-        except Exception as e:
-            print(f"Error processing {image_path}: {str(e)}")
-
-    # Convert grouped results to desired JSON structure
-    for parent_dir, files in grouped_results.items():
-        results.append({parent_dir: files})
+    results = compute_skeletons_for_folder_of_videos(args.input_dir, args.nested, args.output_file)
 
     # Save results to JSON file
     try:
