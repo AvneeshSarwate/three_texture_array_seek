@@ -126,8 +126,13 @@ def extract_contours_from_video_folder(video_folder_path):
 def extract_contours_from_folder_of_videos(folder_path):
   all_video_contours = {}
   for video_path in os.listdir(folder_path):
-    print("starting",video_path)
     video_folder_path = os.path.join(folder_path, video_path)
+    #if not a directory, skip
+    if not os.path.isdir(video_folder_path):
+      print("skipping", video_folder_path)
+      continue
+    print("starting",video_path)
+    
     video_contours = extract_contours_from_video_folder(video_folder_path)
     all_video_contours[video_path] = video_contours
     print(video_path, "finished with num frames", len(video_contours['frames']))

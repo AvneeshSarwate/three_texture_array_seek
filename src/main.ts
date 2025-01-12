@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
+import p5 from "p5";
+import { contours } from "./all_video_contours";
+import { bezierToCatmullRomExact } from "./bezierToCatmullRom";
+import { bez2Catmull2 } from "./bez2Catmull2";
+import { bez2CatmullSample } from "./bez2CatmullSample";
+import { resampleSplineEquidistant } from "./splineResample";
+
 
 let scene: THREE.Scene,
   camera: THREE.PerspectiveCamera,
@@ -503,5 +510,65 @@ const init2 = async () => {
   animate();
 };
 
+const init3 = async () => {
 
-window.onload = init2;
+  // const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
+
+  // const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
+  const splineFrames0 = contours.diana.frames.map(frame => bez2CatmullSample(frame))
+  const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
+  const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+
+  const lerpPoints = (p1: Point[], p2: Point[], t: number) => {
+    return p1.map((point, i) => ({
+      x: p1[i].x * (1 - t) + p2[i].x * t,
+      y: p1[i].y * (1 - t) + p2[i].y * t,
+    }))
+  }
+
+  const sketch = (p: p5) => {
+    p.setup = () => {
+      p.createCanvas(960, 540)
+     }
+    p.draw = () => {
+      // p.clear()
+      p.fill(0, 0, 0, 255)
+      p.rect(0, 0, 960, 540)
+      p.noFill()
+      p.stroke(255)
+      p.strokeWeight(2)
+      const fps = 10
+      const frameFrac = ((Date.now() / 1000) * fps) % splineFrames.length
+      const frameFloor = Math.floor(frameFrac)
+      const frameCeil = Math.ceil(frameFrac) % splineFrames.length
+      
+
+      // const frame = contours.diana.frames[frameFloor]
+      // frame.forEach(curve => {
+      //   const [x1, y1, x2, y2, x3, y3, x4, y4] = curve
+      //  p.bezier(x1, y1, x2, y2, x3, y3, x4, y4)
+      // })
+
+      //todo - need to rotationally reorient frames before lerping looks good
+      const lerpedFrame = lerpPoints(splineFrames[frameFloor], splineFrames[frameCeil], frameFrac % 1)
+      const framePts = lerpedFrame;
+      // const framePts = splineFrames[frameFloor]
+
+      p.beginShape()
+      framePts.forEach(point => {
+        p.curveVertex(point.x, point.y)
+      })
+      p.endShape()
+    }
+  }
+
+  const p5i = new p5(sketch);
+  const draw = () => {
+    p5i.draw()
+    requestAnimationFrame(draw)
+  }
+  draw()
+}
+
+
+window.onload = init3;
