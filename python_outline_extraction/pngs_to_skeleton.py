@@ -23,10 +23,11 @@ def process_image(detector, image_path):
 
     # Metadata for landmarks and connections
     pose_landmark_names = [landmark.name for landmark in mp.solutions.pose.PoseLandmark]
-    connections = mp.solutions.pose.POSE_CONNECTIONS
+    
 
     # Convert landmarks to a serializable format
     landmarks_data = []
+    #this iteration is for each detected body
     for pose_landmarks in detection_result.pose_landmarks:
         # Convert each landmark to a dictionary with metadata
         landmarks = []
@@ -38,20 +39,10 @@ def process_image(detector, image_path):
                 'z': float(landmark.z),
                 'visibility': float(landmark.visibility) if hasattr(landmark, 'visibility') else None,
                 'presence': float(landmark.presence) if hasattr(landmark, 'presence') else None
-            })
-        
-        # Add connections metadata
-        connections_data = []
-        for connection in connections:
-            start_idx, end_idx = connection
-            connections_data.append({
-                'start_landmark': pose_landmark_names[start_idx],
-                'end_landmark': pose_landmark_names[end_idx]
-            })
+            }) 
 
         landmarks_data.append({
-            'landmarks': landmarks,
-            'connections': connections_data
+            'landmarks': landmarks
         })
 
     return landmarks_data
@@ -76,6 +67,18 @@ def compute_skeletons_for_folder_of_videos(input_dir, neststed, output_file):
 
     results = []
     grouped_results = {}
+    grouped_results['data'] = {}
+
+    connections = mp.solutions.pose.POSE_CONNECTIONS
+    pose_landmark_names = [landmark.name for landmark in mp.solutions.pose.PoseLandmark]
+    grouped_results['connections'] = {}
+    for connection in connections:
+        start_idx, end_idx = connection
+        # connections_data.append({
+        #     'start_landmark': pose_landmark_names[start_idx],
+        #     'end_landmark': pose_landmark_names[end_idx]
+        # })
+        grouped_results['connections'][pose_landmark_names[start_idx]] = pose_landmark_names[end_idx]
 
     for image_path in png_files:
         try:
@@ -86,18 +89,16 @@ def compute_skeletons_for_folder_of_videos(input_dir, neststed, output_file):
             parent_dir = os.path.relpath(os.path.dirname(image_path), input_dir)
             file_name = os.path.basename(image_path)
 
-            if parent_dir not in grouped_results:
-                grouped_results[parent_dir] = {}
+            if parent_dir not in grouped_results['data']:
+                grouped_results['data'][parent_dir] = {}
 
-            grouped_results[parent_dir][file_name] = landmarks_data
+            grouped_results['data'][parent_dir][file_name] = landmarks_data
         except Exception as e:
             print(f"Error processing {image_path}: {str(e)}")
 
-    # Convert grouped results to desired JSON structure
-    for parent_dir, files in grouped_results.items():
-        results.append({parent_dir: files}) 
+    
 
-    return results
+    return grouped_results
 
 
 def main():

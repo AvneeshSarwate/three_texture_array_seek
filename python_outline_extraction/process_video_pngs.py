@@ -94,7 +94,7 @@ if __name__ == "__main__":
     input_root_directory = args.input_root
     output_root_directory = args.output_root
 
-    scale_pngs(input_root_directory, output_root_directory)
+    # scale_pngs(input_root_directory, output_root_directory)
     # compress_textures(output_root_directory)
     # extract_contours(output_root_directory)
     extract_skeletons(output_root_directory)

@@ -7,6 +7,7 @@ import { bezierToCatmullRomExact } from "./bezierToCatmullRom";
 import { bez2Catmull2 } from "./bez2Catmull2";
 import { bez2CatmullSample } from "./bez2CatmullSample";
 import { resampleSplineEquidistant } from "./splineResample";
+import { skeletons } from "./skeletons";
 
 
 let scene: THREE.Scene,
@@ -519,6 +520,15 @@ const init3 = async () => {
   const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
   const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
 
+  const numDianaFrames = Object.keys(skeletons.data.diana).length
+  //convert index to string with leading zeros so there's 5 digits
+  const dianaSkeletons = Array(numDianaFrames).fill(null).map((_, i) => skeletons.data.diana[(i + 1).toString().padStart(5, '0')+'.png'][0])
+  const skeletonConnections = skeletons.connections
+
+  //splice out index 9 in both arrays for now because it's not connected to anything
+  dianaSkeletons.splice(9, 1)
+  splineFrames.splice(9, 1)
+
   const lerpPoints = (p1: Point[], p2: Point[], t: number) => {
     return p1.map((point, i) => ({
       x: p1[i].x * (1 - t) + p2[i].x * t,
@@ -550,15 +560,23 @@ const init3 = async () => {
       // })
 
       //todo - need to rotationally reorient frames before lerping looks good
-      const lerpedFrame = lerpPoints(splineFrames[frameFloor], splineFrames[frameCeil], frameFrac % 1)
-      const framePts = lerpedFrame;
-      // const framePts = splineFrames[frameFloor]
+      // const lerpedFrame = lerpPoints(splineFrames[frameFloor], splineFrames[frameCeil], frameFrac % 1)
+      // const framePts = lerpedFrame;
+      const framePts = splineFrames[frameFloor]
 
       p.beginShape()
       framePts.forEach(point => {
         p.curveVertex(point.x, point.y)
       })
       p.endShape()
+
+
+      const skeletonFrame = dianaSkeletons[frameFloor]
+      skeletonFrame.landmarks.forEach(landmark => {
+        p.fill(255, 0, 0)
+        p.ellipse(landmark.x * 960, landmark.y * 540, 10, 10)
+      })
+
     }
   }
 
