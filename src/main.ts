@@ -511,23 +511,49 @@ const init2 = async () => {
   animate();
 };
 
+type Point = {
+  x: number
+  y: number
+}
 const init3 = async () => {
 
   // const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
 
   // const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
-  const splineFrames0 = contours.diana.frames.map(frame => bez2CatmullSample(frame))
-  const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
-  const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+  const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
+  
+  const countoursAndSkeletonForPerson = (person: string) => {
+    const splineFrames0 = contours[person].frames.map(frame => bez2CatmullSample(frame))
+    const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
+    const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+    const numFrames = Object.keys(skeletons.data[person]).length
+    const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
+    return {splineFrames, onePersonSkeletons, numFrames}
+  }
 
-  const numDianaFrames = Object.keys(skeletons.data.diana).length
-  //convert index to string with leading zeros so there's 5 digits
-  const dianaSkeletons = Array(numDianaFrames).fill(null).map((_, i) => skeletons.data.diana[(i + 1).toString().padStart(5, '0')+'.png'][0])
-  const skeletonConnections = skeletons.connections
+  let {splineFrames, onePersonSkeletons, numFrames} = countoursAndSkeletonForPerson('chloe')
 
-  //splice out index 9 in both arrays for now because it's not connected to anything
-  dianaSkeletons.splice(9, 1)
-  splineFrames.splice(9, 1)
+  const createDropdown = () => {
+    const dropdown = document.createElement('select');
+    dropdown.id = 'person-dropdown';
+    people.forEach(person => {
+      const option = document.createElement('option');
+      option.value = person;
+      option.text = person;
+      dropdown.appendChild(option);
+    });
+    document.body.appendChild(dropdown);
+
+    dropdown.addEventListener('change', (event) => {
+      const selectedPerson = (event.target as HTMLSelectElement).value;
+      const { splineFrames: newSplineFrames, onePersonSkeletons: newOnePersonSkeletons, numFrames: newNumFrames } = countoursAndSkeletonForPerson(selectedPerson);
+      splineFrames = newSplineFrames;
+      onePersonSkeletons = newOnePersonSkeletons;
+      numFrames = newNumFrames;
+    });
+  };
+
+  createDropdown();
 
   const lerpPoints = (p1: Point[], p2: Point[], t: number) => {
     return p1.map((point, i) => ({
@@ -547,7 +573,7 @@ const init3 = async () => {
       p.noFill()
       p.stroke(255)
       p.strokeWeight(2)
-      const fps = 10
+      const fps = 20
       const frameFrac = ((Date.now() / 1000) * fps) % splineFrames.length
       const frameFloor = Math.floor(frameFrac)
       const frameCeil = Math.ceil(frameFrac) % splineFrames.length
@@ -571,12 +597,14 @@ const init3 = async () => {
       p.endShape()
 
 
-      const skeletonFrame = dianaSkeletons[frameFloor]
-      skeletonFrame.landmarks.forEach(landmark => {
-        p.fill(255, 0, 0)
-        p.ellipse(landmark.x * 960, landmark.y * 540, 10, 10)
-      })
-
+      const skeletonsInFrame = onePersonSkeletons[frameFloor]
+      if(skeletonsInFrame) {
+        const skeleton = skeletonsInFrame[0]
+        skeleton.landmarks.forEach(landmark => {
+          p.fill(255, 0, 0)
+          p.ellipse(landmark.x * 512, landmark.y * 512, 10, 10)
+        })
+      }
     }
   }
 

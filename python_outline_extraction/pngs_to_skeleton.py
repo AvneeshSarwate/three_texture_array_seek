@@ -1,4 +1,4 @@
-import mediapipe as mp
+import mediapipe as mp # via pip install mediapipe
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import argparse
@@ -50,9 +50,9 @@ def process_image(detector, image_path):
 def collect_png_files(input_dir, nested):
     """Collect PNG files from the input directory. If nested is True, search subdirectories."""
     if nested:
-        return glob.glob(os.path.join(input_dir, '**', '*.png'), recursive=True)
+        return sorted(glob.glob(os.path.join(input_dir, '**', '*.png'), recursive=True))
     else:
-        return glob.glob(os.path.join(input_dir, '*.png'))
+        return sorted(glob.glob(os.path.join(input_dir, '*.png')))
 
 
 def compute_skeletons_for_folder_of_videos(input_dir, neststed, output_file):

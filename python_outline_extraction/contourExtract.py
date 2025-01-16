@@ -112,7 +112,7 @@ def extract_contours(image_path):
 
 def extract_contours_from_video_folder(video_folder_path):
   contourList = []
-  for image_path in os.listdir(video_folder_path):
+  for image_path in sorted(os.listdir(video_folder_path)):
     # print(image_path)
     full_image_path = os.path.join(video_folder_path, image_path)
     contour = extract_contours(full_image_path)

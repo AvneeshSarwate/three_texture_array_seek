@@ -46,8 +46,8 @@ def compress_textures(target_dir):
                 cmd = [
                     "basisu",
                     "-uastc", "-ktx2", "-tex_array",
-                    "-multifile_printf", os.path.join(subdir_path, "%05u.png"),
-                    "-multifile_first", "1",
+                    "-multifile_printf", os.path.join(subdir_path, "%06u.png"),
+                    "-multifile_first", "0",
                     "-multifile_num", str(num_files),
                     "-output_file", f"{subdir_path}_texture_array.ktx2"
                 ]
@@ -96,6 +96,6 @@ if __name__ == "__main__":
 
     # scale_pngs(input_root_directory, output_root_directory)
     # compress_textures(output_root_directory)
-    # extract_contours(output_root_directory)
-    extract_skeletons(output_root_directory)
+    extract_contours(output_root_directory)
+    # extract_skeletons(output_root_directory)
     
