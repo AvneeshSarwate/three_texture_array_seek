@@ -523,43 +523,45 @@ function distance(p1: Point, p2: Point) {
   return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
 }
 
+// const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
+
+// const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
+const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
+
+//if control pt 1 is more than threshold distance from anchor pt 1, 
+//and control pt 2 is more than threshold distance from anchor pt 2,
+//then replace control pts 1 and 2 with the avg of the anchor pts
+function smoothBezierCurve(curve: number[], threshold: number) {
+  const [x1, y1, x2, y2, x3, y3, x4, y4] = curve
+  const anchor1 = {x: x1, y: y1}
+  const anchor2 = {x: x4, y: y4}
+  const control1 = {x: x2, y: y2}
+  const control2 = {x: x3, y: y3}
+  const dist1 = distance(anchor1, control1)
+  const dist2 = distance(anchor2, control2)
+  if(dist1 > threshold && dist2 > threshold) {
+    const avg = {x: (anchor1.x + anchor2.x) / 2, y: (anchor1.y + anchor2.y) / 2}
+    return [x1, y1, avg.x, avg.y, avg.x, avg.y, x4, y4]
+  }
+  return curve
+}
+
+const countoursAndSkeletonForPerson = (person: string) => {
+  const bezierCurves = contours[person].frames.map(frame => {
+    return frame.map(curve => smoothBezierCurve(curve, 20))
+  })
+  const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame))
+  const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
+  const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+  // const splineFrames = splineFrames0
+  const numFrames = Object.keys(skeletons.data[person]).length
+  const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
+  return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
+}
+
 const init3 = async () => {
 
-  // const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
-
-  // const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
-  const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
-
-  //if control pt 1 is more than threshold distance from anchor pt 1, 
-  //and control pt 2 is more than threshold distance from anchor pt 2,
-  //then replace control pts 1 and 2 with the avg of the anchor pts
-  function smoothBezierCurve(curve: number[], threshold: number) {
-    const [x1, y1, x2, y2, x3, y3, x4, y4] = curve
-    const anchor1 = {x: x1, y: y1}
-    const anchor2 = {x: x4, y: y4}
-    const control1 = {x: x2, y: y2}
-    const control2 = {x: x3, y: y3}
-    const dist1 = distance(anchor1, control1)
-    const dist2 = distance(anchor2, control2)
-    if(dist1 > threshold && dist2 > threshold) {
-      const avg = {x: (anchor1.x + anchor2.x) / 2, y: (anchor1.y + anchor2.y) / 2}
-      return [x1, y1, avg.x, avg.y, avg.x, avg.y, x4, y4]
-    }
-    return curve
-  }
   
-  const countoursAndSkeletonForPerson = (person: string) => {
-    const bezierCurves = contours[person].frames.map(frame => {
-      return frame.map(curve => smoothBezierCurve(curve, 20))
-    })
-    const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame))
-    const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
-    const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
-    // const splineFrames = splineFrames0
-    const numFrames = Object.keys(skeletons.data[person]).length
-    const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
-    return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
-  }
 
   let {splineFrames, onePersonSkeletons, bezierCurves, numFrames} = countoursAndSkeletonForPerson('chloe')
 
@@ -654,5 +656,160 @@ const init3 = async () => {
   draw()
 }
 
+const init4 = async () => {
+  const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
 
-window.onload = init3;
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ canvas });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Scene
+  scene = new THREE.Scene();
+
+  const orthoCam = new THREE.OrthographicCamera(0, window.innerWidth, 0, window.innerHeight)
+  orthoCam.position.z = 2
+  scene.add(orthoCam)
+
+  // Controls
+  const controls = new OrbitControls(orthoCam, renderer.domElement);
+
+  // Uniforms
+  uniforms = {
+    frame: { value: 0 },
+    textureArray: { value: null },
+    makeBlackThresh: { value: 3 },
+  };
+
+  // Quad geometry and shader material
+  const size = 1
+  const geometry = new THREE.PlaneGeometry(size, size);
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2DArray textureArray;
+      uniform float frame;
+      uniform float makeBlackThresh;
+      varying vec2 vUv;
+      void main() {
+        vec2 yFlip = vec2(vUv.x, 1.0 - vUv.y);
+        vec4 color = texture(textureArray, vec3(yFlip, frame));
+        bool makeBlack = color.a == 0.0 || color.r + color.g + color.b > makeBlackThresh;
+        gl_FragColor = makeBlack ? vec4(0,0,0,0) : color;
+      }
+    `,
+  });
+  material.transparent = true;
+  material.side = THREE.DoubleSide;
+
+  //4x5 grid positions
+  const rows = 4
+  const cols = 5
+  const blockWidth = window.innerWidth / cols 
+  const blockHeight = window.innerHeight / rows
+
+  const positions = Array.from({length: rows * cols}, (_, i) => ({
+    x: (i % cols) * blockWidth,
+    y: Math.floor(i / cols) * blockHeight,
+  }))
+
+  const numQuads = rows * cols
+  const materials: THREE.ShaderMaterial[] = []
+  const meshes: THREE.Mesh[] = []
+  const uniformsArr: { [key: string]: { value: any } }[] = []
+
+  //todo add Line2 for outlines here
+
+  for (let i = 0; i < numQuads; i++) {
+    const matClone = material.clone()
+    materials.push(matClone)
+    uniformsArr.push({
+      frame: { value: 0 },
+      textureArray: { value: null },
+      makeBlackThresh: { value: 3 },
+    })
+    matClone.uniforms = uniformsArr[i]
+    const quad = new THREE.Mesh(geometry, matClone);
+    quad.position.x = positions[i].x + blockWidth / 2
+    quad.position.y = positions[i].y + blockHeight / 2
+    quad.scale.set(blockWidth, blockHeight * -1, 1)
+    meshes.push(quad)
+    scene.add(quad)
+  }
+
+  // Load textures
+  const loader = new KTX2Loader()
+    .setTranscoderPath("node_modules/three/examples/jsm/libs/basis/")
+    .detectSupport(renderer);
+
+  console.log(loader);
+
+  const textures = people.map(person => `${person}_texture_array.ktx2`)
+  const textureLengthMap: Record<string, number> = {}
+  const loadTexturePromises = textures.map(textureName => {
+    return new Promise<THREE.CompressedArrayTexture>((resolve, reject) => {
+      loader.load(
+        textureName,
+        (textureArray) => {
+          const texArr = textureArray as THREE.CompressedArrayTexture
+          textureLengthMap[textureName] = texArr.source.data.depth
+          console.log(`${textureName}:`, "frames", texArr.mipmaps!!.length, "megs", texArr.mipmaps!![0].data.length / 1000000, "format", texArr.format);
+          resolve(texArr);
+        },
+        undefined,
+        (err) => {
+          console.log("error loading texture", textureName)
+          reject(new Error(`Error loading texture: ${textureName} ${err}`))
+        }
+      );
+    });
+  });
+  const textureArrays = await Promise.all(loadTexturePromises)  
+
+  const baseFps = 15
+  type QuadParam = {
+    texName: string
+    frameCount: number
+    fps: number
+  }
+  const quadParams: QuadParam[] = []
+
+  //assign textures to quads
+  for (let i = 0; i < numQuads; i++) {
+    uniformsArr[i].textureArray.value = textureArrays[i]
+    quadParams.push({
+      texName: textures[i],
+      frameCount: textureLengthMap[textures[i]],
+      fps: baseFps,
+    })
+  }
+
+  let lastTime = performance.now()
+  let accumTime = 0
+
+  const animate = () => {
+    const newTime = performance.now()
+    const deltaTime = newTime - lastTime
+    lastTime = newTime
+    accumTime += deltaTime / 1000
+
+    requestAnimationFrame(animate);
+    renderer.render(scene, orthoCam);
+
+    uniformsArr.forEach((uniform, i) => {
+      uniform.frame.value = Math.floor(accumTime * quadParams[i].fps) % quadParams[i].frameCount
+    })
+  }
+
+  animate()
+}
+
+
+window.onload = init4;
+
