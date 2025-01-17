@@ -5,7 +5,7 @@ type Point = { x: number; y: number };
 /**
  * Resamples a Catmull-Rom spline to have N approximately equidistant points
  */
-export function resampleSplineEquidistant(points: Point[], numPoints: number): Point[] {
+export function resampleSplineEquidistant(points: Point[], numPoints: number, gapThreshold: number = 40): Point[] {
     // First, calculate approximate total arc length
     const arcLength = calculateSplineArcLength(points);
     
@@ -28,6 +28,16 @@ export function resampleSplineEquidistant(points: Point[], numPoints: number): P
         x: points[points.length - 1].x, 
         y: points[points.length - 1].y 
     });
+
+    // //if any point is more than gapThreshold away from both the previous and next point, replace it with the average of the previous and next point
+    // for (let i = 1; i < sampledPoints.length - 1; i++) {
+    //     const bigGap = distance(sampledPoints[i], sampledPoints[i - 1]) > gapThreshold && distance(sampledPoints[i], sampledPoints[i + 1]) > gapThreshold
+    //     const pointHasNaN = isNaN(sampledPoints[i].x) || isNaN(sampledPoints[i].y)
+    //     if (bigGap || pointHasNaN) {
+    //         console.log("replacing point", i)
+    //         sampledPoints[i] = { x: (sampledPoints[i - 1].x + sampledPoints[i + 1].x) / 2, y: (sampledPoints[i - 1].y + sampledPoints[i + 1].y) / 2 };
+    //     }
+    // }
     
     return sampledPoints;
 }

@@ -511,6 +511,9 @@ const init2 = async () => {
   animate();
 };
 
+
+//todo - find out how shreya data got misformatted on export
+
 type Point = {
   x: number
   y: number
@@ -523,15 +526,17 @@ const init3 = async () => {
   const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
   
   const countoursAndSkeletonForPerson = (person: string) => {
+    const bezierCurves = contours[person].frames
     const splineFrames0 = contours[person].frames.map(frame => bez2CatmullSample(frame))
     const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
-    const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+    // const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+    const splineFrames = splineFrames0
     const numFrames = Object.keys(skeletons.data[person]).length
     const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
-    return {splineFrames, onePersonSkeletons, numFrames}
+    return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
   }
 
-  let {splineFrames, onePersonSkeletons, numFrames} = countoursAndSkeletonForPerson('chloe')
+  let {splineFrames, onePersonSkeletons, bezierCurves, numFrames} = countoursAndSkeletonForPerson('chloe')
 
   const createDropdown = () => {
     const dropdown = document.createElement('select');
@@ -546,9 +551,10 @@ const init3 = async () => {
 
     dropdown.addEventListener('change', (event) => {
       const selectedPerson = (event.target as HTMLSelectElement).value;
-      const { splineFrames: newSplineFrames, onePersonSkeletons: newOnePersonSkeletons, numFrames: newNumFrames } = countoursAndSkeletonForPerson(selectedPerson);
+      const { splineFrames: newSplineFrames, onePersonSkeletons: newOnePersonSkeletons, bezierCurves: newBezierCurves, numFrames: newNumFrames } = countoursAndSkeletonForPerson(selectedPerson);
       splineFrames = newSplineFrames;
       onePersonSkeletons = newOnePersonSkeletons;
+      bezierCurves = newBezierCurves;
       numFrames = newNumFrames;
     });
   };
@@ -562,6 +568,7 @@ const init3 = async () => {
     }))
   }
 
+  let stepIndex = 0
   const sketch = (p: p5) => {
     p.setup = () => {
       p.createCanvas(960, 540)
@@ -574,27 +581,33 @@ const init3 = async () => {
       p.stroke(255)
       p.strokeWeight(2)
       const fps = 20
+      const stepper = 0.2
+      stepIndex += stepper
       const frameFrac = ((Date.now() / 1000) * fps) % splineFrames.length
-      const frameFloor = Math.floor(frameFrac)
+      const frameFloor = Math.floor(stepIndex) % splineFrames.length
       const frameCeil = Math.ceil(frameFrac) % splineFrames.length
       
 
-      // const frame = contours.diana.frames[frameFloor]
-      // frame.forEach(curve => {
-      //   const [x1, y1, x2, y2, x3, y3, x4, y4] = curve
-      //  p.bezier(x1, y1, x2, y2, x3, y3, x4, y4)
-      // })
+      const frame = bezierCurves[frameFloor]
+      frame.forEach(curve => {
+        const [x1, y1, x2, y2, x3, y3, x4, y4] = curve
+        p.bezier(x1, y1, x2, y2, x3, y3, x4, y4)
+      })
 
       //todo - need to rotationally reorient frames before lerping looks good
       // const lerpedFrame = lerpPoints(splineFrames[frameFloor], splineFrames[frameCeil], frameFrac % 1)
       // const framePts = lerpedFrame;
-      const framePts = splineFrames[frameFloor]
 
-      p.beginShape()
-      framePts.forEach(point => {
-        p.curveVertex(point.x, point.y)
-      })
-      p.endShape()
+      // const framePts = splineFrames[frameFloor]
+      // p.beginShape()
+      // framePts.forEach((point, i) => {
+      //   // p.curveVertex(point.x, point.y)
+      //   // p.vertex(point.x, point.y)
+      //   if(i > 0) {
+      //     p.line(point.x, point.y, framePts[i - 1].x, framePts[i - 1].y)
+      //   }
+      // })
+      // p.endShape()
 
 
       const skeletonsInFrame = onePersonSkeletons[frameFloor]
