@@ -514,66 +514,6 @@ const init2 = async () => {
 };
 
 
-//todo - find out how shreya data got misformatted on export
-
-type Point = {
-  x: number
-  y: number
-}
-
-function distance(p1: Point, p2: Point) {
-  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
-}
-
-// const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
-
-// const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
-const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
-// const people = ["chloe"]
-
-//if control pt 1 is more than threshold distance from anchor pt 1, 
-//and control pt 2 is more than threshold distance from anchor pt 2,
-//then replace control pts 1 and 2 with the avg of the anchor pts
-function smoothBezierCurve(curve: number[], threshold: number) {
-  const [x1, y1, x2, y2, x3, y3, x4, y4] = curve
-  const anchor1 = {x: x1, y: y1}
-  const anchor2 = {x: x4, y: y4}
-  const control1 = {x: x2, y: y2}
-  const control2 = {x: x3, y: y3}
-  const dist1 = distance(anchor1, control1)
-  const dist2 = distance(anchor2, control2)
-  if(dist1 > threshold && dist2 > threshold) {
-    const avg = {x: (anchor1.x + anchor2.x) / 2, y: (anchor1.y + anchor2.y) / 2}
-    return [x1, y1, avg.x, avg.y, avg.x, avg.y, x4, y4]
-  }
-  return curve
-}
-
-const countoursAndSkeletonForPerson = (person: string) => {
-  const bezierCurves = contours[person].frames.map(frame => {
-    return frame.map(curve => smoothBezierCurve(curve, 20))
-  })
-  const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame))
-  const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
-  const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
-  // const splineFrames = splineFrames0
-  const numFrames = Object.keys(skeletons.data[person]).length
-  const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
-  return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
-}
-
-const countoursAndSkeletonForPersonTHREE = (person: string) => {
-  const bezierCurves = contours[person].frames.map(frame => {
-    return frame.map(curve => smoothBezierCurve(curve, 20))
-  })
-  const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame, 4))
-  const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
-  const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints)).map(frame => frame.map(pt => new THREE.Vector2(pt.x, pt.y)))
-  // const splineFrames = splineFrames0
-  const numFrames = Object.keys(skeletons.data[person]).length
-  const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
-  return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
-}
 
 const init3 = async () => {
 
@@ -701,6 +641,55 @@ async function getPeopleData() {
   return peopleData
 }
 
+//todo - find out how shreya data got misformatted on export
+
+type Point = {
+  x: number
+  y: number
+}
+
+function distance(p1: Point, p2: Point) {
+  return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2)
+}
+
+// const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
+
+// const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
+const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
+// const people = ["chloe"]
+
+//if control pt 1 is more than threshold distance from anchor pt 1, 
+//and control pt 2 is more than threshold distance from anchor pt 2,
+//then replace control pts 1 and 2 with the avg of the anchor pts
+function smoothBezierCurve(curve: number[], threshold: number) {
+  const [x1, y1, x2, y2, x3, y3, x4, y4] = curve
+  const anchor1 = {x: x1, y: y1}
+  const anchor2 = {x: x4, y: y4}
+  const control1 = {x: x2, y: y2}
+  const control2 = {x: x3, y: y3}
+  const dist1 = distance(anchor1, control1)
+  const dist2 = distance(anchor2, control2)
+  if(dist1 > threshold && dist2 > threshold) {
+    const avg = {x: (anchor1.x + anchor2.x) / 2, y: (anchor1.y + anchor2.y) / 2}
+    return [x1, y1, avg.x, avg.y, avg.x, avg.y, x4, y4]
+  }
+  return curve
+}
+
+const countoursAndSkeletonForPerson = (person: string) => {
+  const bezierCurves = contours[person].frames.map(frame => {
+    return frame.map(curve => smoothBezierCurve(curve, 20))
+  })
+  const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame))
+  const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
+  const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+  // const splineFrames = splineFrames0
+  const numFrames = Object.keys(skeletons.data[person]).length
+  const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
+  return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
+}
+
+
 const init4 = async () => {
   const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
   // Renderer
@@ -796,8 +785,8 @@ const init4 = async () => {
   const blockSize = 140//Math.min(blockWidth, blockHeight)
 
   const positions = Array.from({length: rows * cols}, (_, i) => ({
-    x: (i % cols) * blockWidth,
-    y: Math.floor(i / cols) * blockHeight,
+    x: (i % cols) * blockWidth + blockWidth / 2,
+    y: Math.floor(i / cols) * blockHeight + blockHeight / 2,
   }))
 
   const numQuads = rows * cols
@@ -821,7 +810,7 @@ const init4 = async () => {
 
   //todo add Line2 for outlines here
 
-  function createDancer(dancerName: string, position: {x: number, y: number}) {
+  function createDancer(dancerName: string, blockSize: number, position: {x: number, y: number}) {
     const textureName = `${dancerName}_texture_array.ktx2`
     const matClone = material.clone()
     const uniformsClone = {
@@ -832,8 +821,6 @@ const init4 = async () => {
     matClone.uniforms = uniformsClone
 
     const quad = new THREE.Mesh(geometry, matClone);
-    quad.position.x = blockWidth / 2
-    quad.position.y = blockHeight / 2
     quad.scale.set(blockSize, blockSize * -1, 1)
 
     const lineGeometry = new LineGeometry()
@@ -850,8 +837,8 @@ const init4 = async () => {
     line.computeLineDistances();
     line.scale.set(blockSize / 512, blockSize / 512, 1)
     //translate xy so that the scaling is centered on the quad
-    line.position.x = blockWidth / 2 - blockSize / 2
-    line.position.y = blockHeight / 2 - blockSize / 2
+    line.position.x = - blockSize / 2
+    line.position.y = - blockSize / 2
     line.translateZ(0.001)
 
     const group = new THREE.Group()
@@ -883,7 +870,7 @@ const init4 = async () => {
   }
 
   for (let i = 0; i < numQuads; i++) {
-    dancers.push(createDancer(people[i], positions[i]))
+    dancers.push(createDancer(people[i], blockSize, positions[i]))
   }
 
   
