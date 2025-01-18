@@ -528,8 +528,8 @@ function distance(p1: Point, p2: Point) {
 // const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
 
 // const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
-// const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
-const people = ["chloe"]
+const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
+// const people = ["chloe"]
 
 //if control pt 1 is more than threshold distance from anchor pt 1, 
 //and control pt 2 is more than threshold distance from anchor pt 2,
@@ -758,6 +758,7 @@ const init4 = async () => {
   const cols = 5
   const blockWidth = window.innerWidth / cols 
   const blockHeight = window.innerHeight / rows
+  const blockSize = 140//Math.min(blockWidth, blockHeight)
 
   const positions = Array.from({length: rows * cols}, (_, i) => ({
     x: (i % cols) * blockWidth,
@@ -786,7 +787,7 @@ const init4 = async () => {
     const quad = new THREE.Mesh(geometry, matClone);
     quad.position.x = blockWidth / 2
     quad.position.y = blockHeight / 2
-    quad.scale.set(blockWidth, blockHeight * -1, 1)
+    quad.scale.set(blockSize, blockSize * -1, 1)
     meshes.push(quad)
     // scene.add(quad)
 
@@ -802,16 +803,20 @@ const init4 = async () => {
     lineGeometry.setFromPoints(peopleData[i].splineFrames[0])
     const line = new Line2(lineGeometry, lineMaterial)
     line.computeLineDistances();
-    line.scale.set(blockWidth / 512, blockHeight / 512, 1)
+    line.scale.set(blockSize / 512, blockSize / 512, 1)
+    //translate xy so that the scaling is centered on the quad
+    line.position.x = blockWidth / 2 - blockSize / 2
+    line.position.y = blockHeight / 2 - blockSize / 2
     line.translateZ(0.001)
     lines.push(line)
     // scene.add(line)
 
     const group = new THREE.Group()
-    group.position.x = positions[i].x 
-    group.position.y = positions[i].y 
+    group.position.x = positions[i].x
+    group.position.y = positions[i].y
     group.add(quad)
     group.add(line)
+
     groups.push(group)
     scene.add(group)
   }
