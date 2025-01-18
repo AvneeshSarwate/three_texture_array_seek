@@ -672,11 +672,38 @@ const init3 = async () => {
   draw()
 }
 
+type PeopleData =  {[key: string]: {
+  splineFrames: THREE.Vector2[][];
+  onePersonSkeletons: {
+      landmarks: {
+          name: string;
+          x: number;
+          y: number;
+          z: number;
+          visibility: number;
+          presence: number;
+      }[];
+  }[][];
+  bezierCurves: number[][][];
+  numFrames: number;
+}}
+
+async function getPeopleData() {
+  //replace with fetch and cast to RawPeopleData
+  // const peopleData = people.map(person => countoursAndSkeletonForPersonTHREE(person))
+  const peopleDataResponse = await fetch('allPeopleData.json')
+  const peopleData = await peopleDataResponse.json() as PeopleData
+  people.forEach(person => {
+    peopleData[person].splineFrames = peopleData[person].splineFrames.map(frame => frame.map(pt => new THREE.Vector2(pt.x, pt.y)))
+  })
+  return people.map(person => peopleData[person])
+}
+
 const init4 = async () => {
   const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
 
-  const peopleData = people.map(person => countoursAndSkeletonForPersonTHREE(person))
-
+  // const peopleData = people.map(person => countoursAndSkeletonForPersonTHREE(person))
+  const peopleData = await getPeopleData()
   // Renderer
   renderer = new THREE.WebGLRenderer({ canvas });
   renderer.setSize(window.innerWidth, window.innerHeight);

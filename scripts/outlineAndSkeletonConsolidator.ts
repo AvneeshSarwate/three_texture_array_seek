@@ -45,7 +45,10 @@ const countoursAndSkeletonForPerson = (person: string) => {
   return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
 }
 
-const allPeopleData = people.map(person => countoursAndSkeletonForPerson(person))
+const allPeopleData = {}
+people.forEach(person => {
+  allPeopleData[person] = countoursAndSkeletonForPerson(person)
+})
 
 //write allPeopleData to a json file
 fs.writeFileSync('allPeopleData.json', JSON.stringify(allPeopleData, null, 2))
