@@ -8,6 +8,7 @@ import { bez2Catmull2 } from "./bez2Catmull2";
 import { bez2CatmullSample } from "./bez2CatmullSample";
 import { resampleSplineEquidistant } from "./splineResample";
 import { skeletons } from "./skeletons";
+import { Line2, LineGeometry, LineMaterial } from "three/examples/jsm/Addons.js";
 
 
 let scene: THREE.Scene,
@@ -526,7 +527,8 @@ function distance(p1: Point, p2: Point) {
 // const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
 
 // const splineFrames = contours.diana.frames.map(frame => bezierToCatmullRomExact(frame))
-const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
+// const people = ["aroma", "chloe", "chris", "diana", "idris", "iman", "jah", "jesse", "kat", "kurush", "latasha", "martin", "robert", "rupal", "sara", "segnon", "senay", "shreya", "stoney", "zandie"]
+const people = ["chloe"]
 
 //if control pt 1 is more than threshold distance from anchor pt 1, 
 //and control pt 2 is more than threshold distance from anchor pt 2,
@@ -553,6 +555,19 @@ const countoursAndSkeletonForPerson = (person: string) => {
   const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame))
   const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
   const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints))
+  // const splineFrames = splineFrames0
+  const numFrames = Object.keys(skeletons.data[person]).length
+  const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
+  return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
+}
+
+const countoursAndSkeletonForPersonTHREE = (person: string) => {
+  const bezierCurves = contours[person].frames.map(frame => {
+    return frame.map(curve => smoothBezierCurve(curve, 20))
+  })
+  const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame))
+  const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
+  const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints)).map(frame => frame.map(pt => new THREE.Vector2(pt.x, pt.y)))
   // const splineFrames = splineFrames0
   const numFrames = Object.keys(skeletons.data[person]).length
   const onePersonSkeletons = Array(numFrames).fill(null).map((_, i) => skeletons.data[person][(i + 1).toString().padStart(6, '0')+'.png'])
@@ -659,6 +674,8 @@ const init3 = async () => {
 const init4 = async () => {
   const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
 
+  const peopleData = people.map(person => countoursAndSkeletonForPersonTHREE(person))
+
   // Renderer
   renderer = new THREE.WebGLRenderer({ canvas });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -723,10 +740,13 @@ const init4 = async () => {
   const materials: THREE.ShaderMaterial[] = []
   const meshes: THREE.Mesh[] = []
   const uniformsArr: { [key: string]: { value: any } }[] = []
+  const lines: Line2[] = []
+  const groups: THREE.Group[] = []
 
   //todo add Line2 for outlines here
 
   for (let i = 0; i < numQuads; i++) {
+    if(!people[i]) continue
     const matClone = material.clone()
     materials.push(matClone)
     uniformsArr.push({
@@ -736,11 +756,33 @@ const init4 = async () => {
     })
     matClone.uniforms = uniformsArr[i]
     const quad = new THREE.Mesh(geometry, matClone);
-    quad.position.x = positions[i].x + blockWidth / 2
-    quad.position.y = positions[i].y + blockHeight / 2
+    quad.position.x = blockWidth / 2
+    quad.position.y = blockHeight / 2
     quad.scale.set(blockWidth, blockHeight * -1, 1)
     meshes.push(quad)
-    scene.add(quad)
+    // scene.add(quad)
+
+    const lineGeometry = new LineGeometry()
+    const lineMaterial = new LineMaterial( {
+      color: 0xffffff,
+      linewidth: 5, // in world units with size attenuation, pixels otherwise
+      vertexColors: true,
+      dashed: false,
+      alphaToCoverage: true,
+    });
+    lineGeometry.setFromPoints(peopleData[i].splineFrames[0])
+    const line = new Line2(lineGeometry, lineMaterial)
+    line.scale.set(blockWidth / 512, blockHeight / 512, 1)
+    lines.push(line)
+    // scene.add(line)
+
+    const group = new THREE.Group()
+    group.position.x = positions[i].x 
+    group.position.y = positions[i].y 
+    group.add(quad)
+    group.add(line)
+    groups.push(group)
+    scene.add(group)
   }
 
   // Load textures
@@ -782,6 +824,7 @@ const init4 = async () => {
 
   //assign textures to quads
   for (let i = 0; i < numQuads; i++) {
+    if(!people[i]) continue
     uniformsArr[i].textureArray.value = textureArrays[i]
     quadParams.push({
       texName: textures[i],
@@ -803,7 +846,9 @@ const init4 = async () => {
     renderer.render(scene, orthoCam);
 
     uniformsArr.forEach((uniform, i) => {
-      uniform.frame.value = Math.floor(accumTime * quadParams[i].fps) % quadParams[i].frameCount
+      const frame = Math.floor(accumTime * quadParams[i].fps) % quadParams[i].frameCount
+      uniform.frame.value = frame
+      lines[i].geometry.setFromPoints(peopleData[i].splineFrames[frame])
     })
   }
 
