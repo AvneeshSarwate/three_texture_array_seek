@@ -1,10 +1,11 @@
+//disable all unused variable warnings
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { KTX2Loader } from "three/examples/jsm/loaders/KTX2Loader.js";
 import p5 from "p5";
 import { contours } from "./all_video_contours";
-import { bezierToCatmullRomExact } from "./bezierToCatmullRom";
-import { bez2Catmull2 } from "./bez2Catmull2";
 import { bez2CatmullSample } from "./bez2CatmullSample";
 import { resampleSplineEquidistant } from "./splineResample";
 import { skeletons } from "./skeletons";
@@ -565,7 +566,7 @@ const countoursAndSkeletonForPersonTHREE = (person: string) => {
   const bezierCurves = contours[person].frames.map(frame => {
     return frame.map(curve => smoothBezierCurve(curve, 20))
   })
-  const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame))
+  const splineFrames0 = bezierCurves.map(frame => bez2CatmullSample(frame, 4))
   const maxPoints = Math.max(...splineFrames0.map(frame => frame.length))
   const splineFrames = splineFrames0.map(frame => resampleSplineEquidistant(frame, maxPoints)).map(frame => frame.map(pt => new THREE.Vector2(pt.x, pt.y)))
   // const splineFrames = splineFrames0
@@ -766,13 +767,16 @@ const init4 = async () => {
     const lineMaterial = new LineMaterial( {
       color: 0xffffff,
       linewidth: 5, // in world units with size attenuation, pixels otherwise
-      vertexColors: true,
+      // vertexColors: true,
       dashed: false,
       alphaToCoverage: true,
+      // worldUnits: true,
     });
     lineGeometry.setFromPoints(peopleData[i].splineFrames[0])
     const line = new Line2(lineGeometry, lineMaterial)
+    line.computeLineDistances();
     line.scale.set(blockWidth / 512, blockHeight / 512, 1)
+    line.translateZ(0.001)
     lines.push(line)
     // scene.add(line)
 
