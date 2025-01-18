@@ -672,21 +672,23 @@ const init3 = async () => {
   draw()
 }
 
-type PeopleData =  {[key: string]: {
-  splineFrames: THREE.Vector2[][];
-  onePersonSkeletons: {
-      landmarks: {
-          name: string;
-          x: number;
-          y: number;
-          z: number;
-          visibility: number;
-          presence: number;
-      }[];
-  }[][];
-  bezierCurves: number[][][];
-  numFrames: number;
-}}
+type PeopleData =  {
+  [key: string]: {
+    splineFrames: THREE.Vector2[][];
+    onePersonSkeletons: {
+        landmarks: {
+            name: string;
+            x: number;
+            y: number;
+            z: number;
+            visibility: number;
+            presence: number;
+        }[];
+    }[][];
+    bezierCurves: number[][][];
+    numFrames: number;
+  }
+}
 
 async function getPeopleData() {
   //replace with fetch and cast to RawPeopleData
@@ -696,17 +698,50 @@ async function getPeopleData() {
   people.forEach(person => {
     peopleData[person].splineFrames = peopleData[person].splineFrames.map(frame => frame.map(pt => new THREE.Vector2(pt.x, pt.y)))
   })
-  return people.map(person => peopleData[person])
+  return peopleData
 }
 
 const init4 = async () => {
   const canvas = document.querySelector<HTMLCanvasElement>("#three-canvas")!;
-
-  // const peopleData = people.map(person => countoursAndSkeletonForPersonTHREE(person))
-  const peopleData = await getPeopleData()
   // Renderer
   renderer = new THREE.WebGLRenderer({ canvas });
   renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Load textures
+  const loader = new KTX2Loader()
+    .setTranscoderPath("node_modules/three/examples/jsm/libs/basis/")
+    .detectSupport(renderer);
+
+  console.log(loader);
+
+  const textures = people.map(person => `${person}_texture_array.ktx2`)
+  const textureLengthMap: Record<string, number> = {}
+  const loadTexturePromises = textures.map(textureName => {
+    return new Promise<THREE.CompressedArrayTexture>((resolve, reject) => {
+      loader.load(
+        textureName,
+        (textureArray) => {
+          const texArr = textureArray as THREE.CompressedArrayTexture
+          textureLengthMap[textureName] = texArr.source.data.depth
+          console.log(`${textureName}:`, "frames", texArr.mipmaps!!.length, "megs", texArr.mipmaps!![0].data.length / 1000000, "format", texArr.format);
+          resolve(texArr);
+        },
+        undefined,
+        (err) => {
+          console.log("error loading texture", textureName)
+          reject(new Error(`Error loading texture: ${textureName} ${err}`))
+        }
+      );
+    });
+  });
+  const textureArrays = await Promise.all(loadTexturePromises)  
+  const texturesByName: Record<string, THREE.CompressedArrayTexture> = {}
+  textures.forEach((textureName, i) => {
+    texturesByName[textureName] = textureArrays[i]
+  })
+
+  // const peopleData = people.map(person => countoursAndSkeletonForPersonTHREE(person))
+  const peopleData = await getPeopleData()
 
   // Scene
   scene = new THREE.Scene();
@@ -766,30 +801,40 @@ const init4 = async () => {
   }))
 
   const numQuads = rows * cols
-  const materials: THREE.ShaderMaterial[] = []
-  const meshes: THREE.Mesh[] = []
-  const uniformsArr: { [key: string]: { value: any } }[] = []
-  const lines: Line2[] = []
-  const groups: THREE.Group[] = []
+  const dancers: {
+    dancerName: string
+    group: THREE.Group
+    line: Line2
+    quad: THREE.Mesh
+    uniforms: { [key: string]: { value: any } }
+    params: QuadParam
+    setFrame: (frame: number) => void
+  }[] = []
+
+  const baseFps = 15
+  type QuadParam = {
+    texName: string
+    frameCount: number
+    fps: number
+  }
+  const quadParams: QuadParam[] = []
 
   //todo add Line2 for outlines here
 
-  for (let i = 0; i < numQuads; i++) {
-    if(!people[i]) continue
+  function createDancer(dancerName: string, position: {x: number, y: number}) {
+    const textureName = `${dancerName}_texture_array.ktx2`
     const matClone = material.clone()
-    materials.push(matClone)
-    uniformsArr.push({
+    const uniformsClone = {
       frame: { value: 0 },
-      textureArray: { value: null },
+      textureArray: { value: texturesByName[textureName] },
       makeBlackThresh: { value: 3 },
-    })
-    matClone.uniforms = uniformsArr[i]
+    }
+    matClone.uniforms = uniformsClone
+
     const quad = new THREE.Mesh(geometry, matClone);
     quad.position.x = blockWidth / 2
     quad.position.y = blockHeight / 2
     quad.scale.set(blockSize, blockSize * -1, 1)
-    meshes.push(quad)
-    // scene.add(quad)
 
     const lineGeometry = new LineGeometry()
     const lineMaterial = new LineMaterial( {
@@ -800,7 +845,7 @@ const init4 = async () => {
       alphaToCoverage: true,
       // worldUnits: true,
     });
-    lineGeometry.setFromPoints(peopleData[i].splineFrames[0])
+    lineGeometry.setFromPoints(peopleData[dancerName].splineFrames[0])
     const line = new Line2(lineGeometry, lineMaterial)
     line.computeLineDistances();
     line.scale.set(blockSize / 512, blockSize / 512, 1)
@@ -808,65 +853,45 @@ const init4 = async () => {
     line.position.x = blockWidth / 2 - blockSize / 2
     line.position.y = blockHeight / 2 - blockSize / 2
     line.translateZ(0.001)
-    lines.push(line)
-    // scene.add(line)
 
     const group = new THREE.Group()
-    group.position.x = positions[i].x
-    group.position.y = positions[i].y
+    group.position.x = position.x
+    group.position.y = position.y
     group.add(quad)
     group.add(line)
 
-    groups.push(group)
     scene.add(group)
+    
+    const params = {
+      texName: textureName,
+      frameCount: textureLengthMap[textureName],
+      fps: baseFps,
+    }
+    quadParams.push(params)
+    return {
+      dancerName,
+      group,
+      line,
+      quad,
+      uniforms: uniformsClone,
+      params,
+      setFrame: (frame: number) => {
+        uniformsClone.frame.value = frame
+        line.geometry.setFromPoints(peopleData[dancerName].splineFrames[frame])
+      }
+    }
   }
 
-  // Load textures
-  const loader = new KTX2Loader()
-    .setTranscoderPath("node_modules/three/examples/jsm/libs/basis/")
-    .detectSupport(renderer);
-
-  console.log(loader);
-
-  const textures = people.map(person => `${person}_texture_array.ktx2`)
-  const textureLengthMap: Record<string, number> = {}
-  const loadTexturePromises = textures.map(textureName => {
-    return new Promise<THREE.CompressedArrayTexture>((resolve, reject) => {
-      loader.load(
-        textureName,
-        (textureArray) => {
-          const texArr = textureArray as THREE.CompressedArrayTexture
-          textureLengthMap[textureName] = texArr.source.data.depth
-          console.log(`${textureName}:`, "frames", texArr.mipmaps!!.length, "megs", texArr.mipmaps!![0].data.length / 1000000, "format", texArr.format);
-          resolve(texArr);
-        },
-        undefined,
-        (err) => {
-          console.log("error loading texture", textureName)
-          reject(new Error(`Error loading texture: ${textureName} ${err}`))
-        }
-      );
-    });
-  });
-  const textureArrays = await Promise.all(loadTexturePromises)  
-
-  const baseFps = 15
-  type QuadParam = {
-    texName: string
-    frameCount: number
-    fps: number
+  for (let i = 0; i < numQuads; i++) {
+    dancers.push(createDancer(people[i], positions[i]))
   }
-  const quadParams: QuadParam[] = []
+
+  
 
   //assign textures to quads
   for (let i = 0; i < numQuads; i++) {
     if(!people[i]) continue
-    uniformsArr[i].textureArray.value = textureArrays[i]
-    quadParams.push({
-      texName: textures[i],
-      frameCount: textureLengthMap[textures[i]],
-      fps: baseFps,
-    })
+    
   }
 
   let lastTime = performance.now()
@@ -881,10 +906,8 @@ const init4 = async () => {
     requestAnimationFrame(animate);
     renderer.render(scene, orthoCam);
 
-    uniformsArr.forEach((uniform, i) => {
-      const frame = Math.floor(accumTime * quadParams[i].fps) % quadParams[i].frameCount
-      uniform.frame.value = frame
-      lines[i].geometry.setFromPoints(peopleData[i].splineFrames[frame])
+    dancers.forEach(dancer => {
+      dancer.setFrame(Math.floor(accumTime * dancer.params.fps) % dancer.params.frameCount)
     })
   }
 
