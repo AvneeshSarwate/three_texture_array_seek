@@ -45,10 +45,24 @@ const countoursAndSkeletonForPerson = (person: string) => {
   return {splineFrames, onePersonSkeletons, bezierCurves, numFrames}
 }
 
-const allPeopleData = {}
+const allPeopleData: Record<string, ReturnType<typeof countoursAndSkeletonForPerson>> = {}
 people.forEach(person => {
   allPeopleData[person] = countoursAndSkeletonForPerson(person)
 })
 
+let maxLenSpline = 0
+people.forEach(person => {
+  const personMaxLenSpline = Math.max(...allPeopleData[person].splineFrames.map(frame => frame.length))
+  if(personMaxLenSpline > maxLenSpline) {
+    maxLenSpline = personMaxLenSpline
+  }
+})
+
+people.forEach(person => {
+  //resample all splineFrames to maxLenSpline
+  allPeopleData[person].splineFrames = allPeopleData[person].splineFrames.map(frame => resampleSplineEquidistant(frame, maxLenSpline))
+})
+
+
 //write allPeopleData to a json file
-fs.writeFileSync('allPeopleData.json', JSON.stringify(allPeopleData, null, 2))
+fs.writeFileSync('allPeopleData_equiSpline.json', JSON.stringify(allPeopleData, null, 2))
