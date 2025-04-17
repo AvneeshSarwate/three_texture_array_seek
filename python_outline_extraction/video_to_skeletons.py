@@ -6,67 +6,68 @@ import argparse
 import os
 import json
 
-def create_pose_detector(model_path='pose_landmarker.task'):
-    """Create and return a pose detector instance."""
+def create_pose_detector(model_path='pose_landmarker_heavy.task', max_num_poses=3):
+    """Create and return a pose detector instance that can detect multiple people."""
     base_options = python.BaseOptions(model_asset_path=model_path)
     options = vision.PoseLandmarkerOptions(
         base_options=base_options,
-        output_segmentation_masks=True
+        output_segmentation_masks=True,
+        num_poses=max_num_poses,
+        min_pose_detection_confidence=0.5,
+        min_pose_presence_confidence=0.5,
+        min_tracking_confidence=0.5
     )
     return vision.PoseLandmarker.create_from_options(options)
 
 def process_image(detector, image):
     """
-    Process a single MediaPipe Image or file-path and return the landmark data with metadata.
-    (Body of this function is unchanged from your original, except for accepting an mp.Image.)
+    Process a single MediaPipe Image (or file-path) and return a list of
+    all detected poses, each with its own landmarks.
     """
-    # if user passed a filename, load it
+    # Load image if a path was provided
     if isinstance(image, str):
         image = mp.Image.create_from_file(image)
 
-    detection_result = detector.detect(image)
+    result = detector.detect(image)
 
-    # Metadata for landmarks
+    # Landmark names
     pose_landmark_names = [lm.name for lm in mp.solutions.pose.PoseLandmark]
 
-    # Convert landmarks to a serializable format
-    landmarks_data = []
-    for pose_landmarks in detection_result.pose_landmarks:
+    poses = []
+    # Iterate over each detected person
+    for person_id, landmark_list in enumerate(result.pose_landmarks):
         landmarks = []
-        for idx, landmark in enumerate(pose_landmarks):
+        for idx, lm in enumerate(landmark_list):
             landmarks.append({
-                'name': pose_landmark_names[idx],
-                'x': float(landmark.x),
-                'y': float(landmark.y),
-                'z': float(landmark.z),
-                'visibility': float(landmark.visibility) if hasattr(landmark, 'visibility') else None,
-                'presence':   float(landmark.presence)   if hasattr(landmark, 'presence')   else None
+                'name':       pose_landmark_names[idx],
+                'x':          float(lm.x),
+                'y':          float(lm.y),
+                'z':          float(lm.z),
+                'visibility': float(lm.visibility) if hasattr(lm, 'visibility') else None,
+                'presence':   float(lm.presence)   if hasattr(lm, 'presence')   else None
             })
-        landmarks_data.append({'landmarks': landmarks})
+        poses.append({
+            'person_id': person_id,
+            'landmarks': landmarks
+        })
 
-    return landmarks_data
+    return poses
 
 def process_video(detector, video_path):
-    """
-    Read each frame from the video, run pose detection, and collect results in the
-    same JSON-layout as your folder-of-PNGs version.
-    """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open video file {video_path}")
 
-    # Prepare the top-level JSON structure
     grouped = {
         'data': {},
         'connections': {}
     }
 
-    # Build the connections mapping
+    # Build connections map
     pose_names = [lm.name for lm in mp.solutions.pose.PoseLandmark]
     for start, end in mp.solutions.pose.POSE_CONNECTIONS:
         grouped['connections'][pose_names[start]] = pose_names[end]
 
-    # Use the video filename (no ext) as the “parent_dir” key
     video_key = os.path.splitext(os.path.basename(video_path))[0]
     grouped['data'][video_key] = {}
 
@@ -76,17 +77,15 @@ def process_video(detector, video_path):
         if not ret:
             break
 
-        # Convert BGR→RGB and wrap as mp.Image
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
         try:
-            landmarks = process_image(detector, mp_img)
-            # Name frames similarly to your PNG-based version
-            grouped['data'][video_key][f'frame_{frame_idx}.png'] = landmarks
+            poses = process_image(detector, mp_image)
+            grouped['data'][video_key][f'frame_{frame_idx}.png'] = poses
         except Exception as e:
             print(f"Error on frame {frame_idx}: {e}")
-
+        print(f"Processed frame {frame_idx}")
         frame_idx += 1
 
     cap.release()
@@ -94,24 +93,28 @@ def process_video(detector, video_path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Compute pose landmarks per frame of an MP4 video'
+        description='Compute multi-person pose landmarks per frame of an MP4 video'
     )
     parser.add_argument('video_path', help='Path to input .mp4 file')
     parser.add_argument('output_file', help='Where to save the JSON results')
     parser.add_argument(
-        '--model', default='pose_landmarker.task',
-        help='Path to your MediaPipe pose_landmarker.task file'
+        '--model', default='pose_landmarker_heavy.task',
+        help='Path to your MediaPipe pose_landmarker_heavy.task file'
+    )
+    parser.add_argument(
+        '--max_poses', type=int, default=3,
+        help='Maximum number of people to detect per frame'
     )
     args = parser.parse_args()
 
     if not os.path.exists(args.model):
         print(f"Error: Model file '{args.model}' not found.")
-        print("Download it with, for example:")
-        print("  wget -O pose_landmarker.task \\")
+        print("Download it with:")
+        print("  wget -O pose_landmarker_heavy.task \\")
         print("    https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/1/pose_landmarker_heavy.task")
         return
 
-    detector = create_pose_detector(args.model)
+    detector = create_pose_detector(args.model, args.max_poses)
     results = process_video(detector, args.video_path)
 
     with open(args.output_file, 'w') as f:

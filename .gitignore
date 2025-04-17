@@ -27,7 +27,11 @@ vids/*
 public/tydance_540_texture_array.ktx2
 
 *pose_landmarker.task
+*pose_landmarker_heavy.task
 
 *__pycache__*
 
 *allPeopleData.json
+*fast_poses*
+*skeletons.mp4
+python_outline_extraction/frames/*
