@@ -20,7 +20,13 @@ const data = JSON.parse(raw);
 const connections = data.connections;
 const videoKey    = Object.keys(data.data)[0];
 const frames      = data.data[videoKey];
-const frameNames  = Object.keys(frames).sort();
+// Fix: Sort frames numerically by extracting the frame number
+const frameNames  = Object.keys(frames).sort((a, b) => {
+  // Extract numeric part from frame_X.png format
+  const numA = parseInt(a.match(/frame_(\d+)\.png/)[1]);
+  const numB = parseInt(b.match(/frame_(\d+)\.png/)[1]);
+  return numA - numB;
+});
 
 // 2. Prepare frame directory
 const framesDir = join(process.cwd(), 'frames');
