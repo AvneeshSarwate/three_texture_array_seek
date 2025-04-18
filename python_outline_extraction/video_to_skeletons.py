@@ -6,16 +6,56 @@ import argparse
 import os
 import json
 
+connections = [
+  ["NOSE", "LEFT_EYE_INNER"],
+  ["LEFT_EYE_INNER", "LEFT_EYE"],
+  ["LEFT_EYE", "LEFT_EYE_OUTER"],
+  ["LEFT_EYE_OUTER", "LEFT_EAR"],
+  ["NOSE", "RIGHT_EYE_INNER"],
+  ["RIGHT_EYE_INNER", "RIGHT_EYE"],
+  ["RIGHT_EYE", "RIGHT_EYE_OUTER"],
+  ["RIGHT_EYE_OUTER", "RIGHT_EAR"],
+  ["MOUTH_LEFT", "MOUTH_RIGHT"],
+
+  ["LEFT_SHOULDER", "RIGHT_SHOULDER"],
+  ["LEFT_SHOULDER", "LEFT_ELBOW"],
+  ["LEFT_ELBOW", "LEFT_WRIST"],
+  ["LEFT_WRIST", "LEFT_THUMB"],
+  ["LEFT_WRIST", "LEFT_INDEX"],
+  ["LEFT_PINKY", "LEFT_INDEX"],
+
+  ["RIGHT_SHOULDER", "RIGHT_ELBOW"],
+  ["RIGHT_ELBOW", "RIGHT_WRIST"],
+  ["RIGHT_WRIST", "RIGHT_THUMB"],
+  ["RIGHT_WRIST", "RIGHT_PINKY"],
+  ["RIGHT_PINKY", "RIGHT_INDEX"],
+
+  ["LEFT_HIP", "RIGHT_HIP"],
+  ["LEFT_SHOULDER", "LEFT_HIP"],
+  ["RIGHT_SHOULDER", "RIGHT_HIP"],
+
+  ["LEFT_HIP", "LEFT_KNEE"],
+  ["LEFT_KNEE", "LEFT_ANKLE"],
+  ["LEFT_ANKLE", "LEFT_HEEL"],
+  ["LEFT_HEEL", "LEFT_FOOT_INDEX"],
+
+  ["RIGHT_HIP", "RIGHT_KNEE"],
+  ["RIGHT_KNEE", "RIGHT_ANKLE"],
+  ["RIGHT_ANKLE", "RIGHT_HEEL"],
+  ["RIGHT_HEEL", "RIGHT_FOOT_INDEX"]
+]
+
+
 def create_pose_detector(model_path='pose_landmarker_heavy.task', max_num_poses=3):
     """Create and return a pose detector instance that can detect multiple people."""
-    base_options = python.BaseOptions(model_asset_path=model_path)
+    base_options = python.BaseOptions(model_asset_path=model_path, delegate=python.BaseOptions.Delegate.GPU)
     options = vision.PoseLandmarkerOptions(
         base_options=base_options,
-        output_segmentation_masks=True,
+        output_segmentation_masks=False,
         num_poses=max_num_poses,
-        min_pose_detection_confidence=0.5,
-        min_pose_presence_confidence=0.5,
-        min_tracking_confidence=0.5
+        min_pose_detection_confidence=0.25,
+        min_pose_presence_confidence=0.25,
+        min_tracking_confidence=0.25
     )
     return vision.PoseLandmarker.create_from_options(options)
 
@@ -64,9 +104,7 @@ def process_video(detector, video_path):
     }
 
     # Build connections map
-    pose_names = [lm.name for lm in mp.solutions.pose.PoseLandmark]
-    for start, end in mp.solutions.pose.POSE_CONNECTIONS:
-        grouped['connections'][pose_names[start]] = pose_names[end]
+    grouped['connections'] = connections
 
     video_key = os.path.splitext(os.path.basename(video_path))[0]
     grouped['data'][video_key] = {}
@@ -78,14 +116,21 @@ def process_video(detector, video_path):
             break
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        rgba = cv2.cvtColor(rgb, cv2.COLOR_RGB2RGBA)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGBA, data=rgba)
+
 
         try:
             poses = process_image(detector, mp_image)
             grouped['data'][video_key][f'frame_{frame_idx}.png'] = poses
         except Exception as e:
             print(f"Error on frame {frame_idx}: {e}")
-        print(f"Processed frame {frame_idx}")
+        if frame_idx % 100 == 0:
+            print(f"Processing frame {frame_idx}...")
+        if frame_idx % 500 == 0:
+            # recreate detector to free up memory
+            detector.close()
+            detector = create_pose_detector(model_path='pose_landmarker_heavy.task', max_num_poses=3)
         frame_idx += 1
 
     cap.release()
@@ -96,7 +141,8 @@ def main():
         description='Compute multi-person pose landmarks per frame of an MP4 video'
     )
     parser.add_argument('video_path', help='Path to input .mp4 file')
-    parser.add_argument('output_file', help='Where to save the JSON results')
+    parser.add_argument('output_file', nargs='?', default=None, 
+                        help='Where to save the JSON results (default: same name as input file with .json extension)')
     parser.add_argument(
         '--model', default='pose_landmarker_heavy.task',
         help='Path to your MediaPipe pose_landmarker_heavy.task file'
@@ -106,6 +152,11 @@ def main():
         help='Maximum number of people to detect per frame'
     )
     args = parser.parse_args()
+
+    # Generate output filename if not provided
+    if args.output_file is None:
+        base_name = os.path.splitext(args.video_path)[0]
+        args.output_file = f"{base_name}.json"
 
     if not os.path.exists(args.model):
         print(f"Error: Model file '{args.model}' not found.")

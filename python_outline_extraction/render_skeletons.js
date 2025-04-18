@@ -44,7 +44,7 @@ frameNames.forEach((fname, idx) => {
   // Draw each detected person
   frames[fname].forEach(pose => {
     // Draw skeleton connections
-    Object.entries(connections).forEach(([start, end]) => {
+    connections.forEach(([start, end]) => {
       const A = pose.landmarks.find(l => l.name === start);
       const B = pose.landmarks.find(l => l.name === end);
       if (A && B) {
